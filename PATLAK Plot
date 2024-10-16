@@ -1,0 +1,110 @@
+import numpy as np
+import pandas as pd
+import matplotlib.pyplot as plt
+from scipy.optimize import curve_fit
+
+# Function for linear fitting (Patlak model is linear for irreversible kinetics)
+def fit_func(x, a, b):
+    return a + b * x
+
+# Data
+data = pd.read_excel(r'C:\Users\Admin\Desktop\test code\PREGNANT_MOUSE_DATA.xlsx', sheet_name='Sheet1')  
+
+#Obtain data points from Pregnant Mouse Worksheet
+time_points = data['Time (min)'].values
+cp = data['BAC (Blood Activity Concentration)'].values
+placenta_ct = data['Placenta Activity'].values
+fetus_ct = data['Fetus Activity'].values
+
+# Cumulative sum of Blood Activity Concentration (BAC) for Patlak X-values (Integral(CP)/CP)
+int_cp = np.cumsum(cp)
+
+# Patlak transformation for placenta and fetus
+patlak_placenta = np.zeros((len(cp), 2))
+patlak_fetus = np.zeros((len(cp), 2))
+
+# Compute Patlak values: X = Integral(CP)/CP and Y = CT/CP
+patlak_placenta[:, 0] = int_cp / cp  # X-axis for placenta (Integral(CP)/CP)
+patlak_placenta[:, 1] = placenta_ct / cp  # Y-axis for placenta (CT/CP)
+
+patlak_fetus[:, 0] = int_cp / cp  # X-axis for fetus (Integral(CP)/CP)
+patlak_fetus[:, 1] = fetus_ct / cp  # Y-axis for fetus (CT/CP)
+
+# Sort the Patlak points for linear fitting
+sorted_indices_placenta = np.argsort(patlak_placenta[:, 0])
+sorted_indices_fetus = np.argsort(patlak_fetus[:, 0])
+
+patlak_placenta_sorted = patlak_placenta[sorted_indices_placenta]
+patlak_fetus_sorted = patlak_fetus[sorted_indices_fetus]
+
+# Perform linear fitting for placenta and fetus
+parameters_placenta, _ = curve_fit(fit_func, patlak_placenta_sorted[:, 0], patlak_placenta_sorted[:, 1])
+parameters_fetus, _ = curve_fit(fit_func, patlak_fetus_sorted[:, 0], patlak_fetus_sorted[:, 1])
+
+# Compute the fitted curves for placenta and fetus
+fitted_curve_placenta = fit_func(patlak_placenta_sorted[:, 0], *parameters_placenta)
+fitted_curve_fetus = fit_func(patlak_fetus_sorted[:, 0], *parameters_fetus)
+
+# Plotting the Patlak plots for placenta and fetus
+plt.figure(figsize=(15, 5))
+
+# Plot for placenta
+plt.subplot(1, 2, 1)
+plt.scatter(patlak_placenta_sorted[:, 0], patlak_placenta_sorted[:, 1], label='Placenta Activity', color='green')
+plt.plot(patlak_placenta_sorted[:, 0], fitted_curve_placenta, label='Linear Fit', color='red')
+plt.xlabel('Integral(CP)/CP')
+plt.ylabel('Placenta CT/CP')
+plt.title('Patlak Plot for Placenta')
+plt.legend()
+plt.text(0.7, 0.1, f'K_i: {parameters_placenta[1]:.4f}', fontsize=12, transform=plt.gca().transAxes)
+
+# Plot for fetus
+plt.subplot(1, 2, 2)
+plt.scatter(patlak_fetus_sorted[:, 0], patlak_fetus_sorted[:, 1], label='Fetus Activity', color='blue')
+plt.plot(patlak_fetus_sorted[:, 0], fitted_curve_fetus, label='Linear Fit', color='red')
+plt.xlabel('Integral(CP)/CP')
+plt.ylabel('Fetus CT/CP')
+plt.title('Patlak Plot for Fetus')
+plt.legend()
+plt.text(0.7, 0.1, f'K_i: {parameters_fetus[1]:.4f}', fontsize=12, transform=plt.gca().transAxes)
+
+plt.tight_layout()
+plt.show()
+
+# Combined plot 
+plt.figure(figsize=(7, 5))
+plt.scatter(patlak_placenta_sorted[:, 0], patlak_placenta_sorted[:, 1], label='Placenta Activity', color='green')
+plt.plot(patlak_placenta_sorted[:, 0], fitted_curve_placenta, label='Placenta Linear Fit', color='green', linestyle='--')
+
+plt.scatter(patlak_fetus_sorted[:, 0], patlak_fetus_sorted[:, 1], label='Fetus Activity', color='blue')
+plt.plot(patlak_fetus_sorted[:, 0], fitted_curve_fetus, label='Fetus Linear Fit', color='blue', linestyle='--')
+
+plt.xlabel('Integral(CP)/CP')
+plt.ylabel('CT/CP')
+plt.title('Patlak Plot: Placenta and Fetus')
+plt.legend()
+plt.text(0.7, 0.1, f'Placenta K_i: {parameters_placenta[1]:.4f}\nFetus K_i: {parameters_fetus[1]:.4f}', fontsize=12, transform=plt.gca().transAxes)
+plt.tight_layout()
+plt.show()
+
+# Time-Activity curves for Blood, Placenta, and Fetus
+plt.figure(figsize=(10, 5))
+plt.plot(time_points, cp, label='Blood Activity (BAC)', color='red', marker='o')
+plt.plot(time_points, placenta_ct, label='Placenta Activity', color='green', marker='o')
+plt.plot(time_points, fetus_ct, label='Fetus Activity', color='blue', marker='o')
+
+plt.xlabel('Time (min)')
+plt.ylabel('Activity Concentration')
+plt.title('Time-Activity Curves for Blood, Placenta, and Fetus')
+plt.legend()
+plt.tight_layout()
+plt.show()
+
+# Compute and display slopes for placenta and fetus
+ki_placenta = parameters_placenta[1]
+ki_fetus = parameters_fetus[1]
+
+#print("Placenta fitted parameters:", parameters_placenta)
+#print("Fetus fitted parameters:", parameters_fetus)
+#print(f"K_i for placenta curve: {ki_placenta}")
+#print(f"K_i for fetus curve: {ki_fetus}")
