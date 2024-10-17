@@ -16,7 +16,7 @@ def fit_func(x, a, b):
     return a + b * x
 
 # Load data
-data = pd.read_excel(r'C:\Users\Admin\Desktop\test code\PREGNANT_MOUSE_DATA.xlsx', sheet_name='Sheet3')  
+data = pd.read_excel(r'C:\FILE PATH.xlsx', sheet_name='Sheet3')  
 
 # Actual Data
 time_points = data['Time (min)'].values
