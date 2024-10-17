@@ -1,0 +1,87 @@
+import os
+import logging
+
+# Configure logging
+logging.basicConfig(filename='conversion_log.txt', level=logging.INFO)
+
+def convert_images_in_folder(folder_path):
+    for root, dirs, files in os.walk(folder_path):
+        for file in files:
+            if file.endswith('.img.hdr'):
+                inveon_file = os.path.join(root, file)
+                logging.info(f"Processing file: {inveon_file}")  # Log the file being processed
+                convert_inveon_to_nhdr(inveon_file, root)
+
+def convert_inveon_to_nhdr(inveon_file, output_folder):
+    base, extension = os.path.splitext(inveon_file)
+
+    try:
+        # Read the header file to extract metadata
+        with open(inveon_file, "r") as file:
+            lines = file.readlines()
+
+        # Initialize the NRRD header
+        nhdr = ['NRRD0001\n'] * 8
+
+        # Define the new filename for the converted NRRD file
+        new_filename = f'{os.path.basename(base)}_converted.nhdr'
+
+        # Initialize variables to capture metadata
+        x_dim = y_dim = z_dim = None
+        x_spacing = y_spacing = z_spacing = None
+
+        # Extract key metadata for the NRRD header
+        for line in lines:
+            if 'data_type' in line:
+                data_type = line.split()
+                nhdr[1] = 'type: int16\n' if data_type[1] == '2' else 'type: float\n'
+
+            if 'x_dimension' in line:
+                x_dim = line.split()
+            if 'y_dimension' in line:
+                y_dim = line.split()
+            if 'z_dimension' in line:
+                z_dim = line.split()
+            if 'pixel_size_x' in line:
+                x_spacing = line.split()
+            if 'pixel_size_y' in line:
+                y_spacing = line.split()
+            if 'pixel_size_z' in line:
+                z_spacing = line.split()
+
+        # Check if essential metadata was found
+        if None in [x_dim, y_dim, z_dim, x_spacing, y_spacing, z_spacing]:
+            logging.error(f"Essential metadata missing for {inveon_file}. Skipping conversion.")
+            return
+
+        # Set NRRD header fields
+        nhdr[2] = 'dimension: 3\n'
+        nhdr[3] = f'sizes: {x_dim[1]} {y_dim[1]} {z_dim[1]}\n'
+        nhdr[4] = f'spacings: {x_spacing[1]} {y_spacing[1]} {z_spacing[1]}\n'
+        nhdr[5] = 'encoding: raw\n'
+
+        # Reference the raw data file without the .hdr extension
+        nhdr[6] = f'data file: {os.path.basename(base)}\n'  # Only use the base filename
+
+        nhdr[7] = 'endian: little\n'
+
+        # Save the NRRD header file
+        output_path = os.path.join(output_folder, new_filename)
+
+        with open(output_path, "w+") as file:
+            file.writelines(nhdr)
+
+        logging.info(f"Converted file saved: {output_path}")  # Log the successful conversion
+
+    except PermissionError:
+        logging.error(f"Permission denied: {output_path}. Skipping this file.")
+    except Exception as e:
+        logging.error(f"Error processing {inveon_file}: {e}")  # Log any other exceptions
+
+def main():
+    # Path to parent folder holding all files to be converted
+    folder_path = r"PATH TO FILE"
+    convert_images_in_folder(folder_path)
+
+if __name__ == "__main__":
+    main()
